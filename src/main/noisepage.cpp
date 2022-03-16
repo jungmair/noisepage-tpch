@@ -7,6 +7,8 @@
 #include "loggers/loggers_util.h"
 #include "main/db_main.h"
 #include "settings/settings_manager.h"
+#include "loggers/execution_logger.h"
+#include "execution/table_generator/table_generator.h"
 
 /**
  * Need a global pointer to access from SignalHandler, unfortunately. Do not remove from this anonymous namespace since
@@ -83,6 +85,39 @@ int main(int argc, char *argv[]) {
                      .Build();
 
   db_main_handler_ptr = db_main.get();
+
+  auto txn_manager_ = db_main->GetTransactionLayer()->GetTransactionManager();
+  auto block_store_ = db_main->GetStorageLayer()->GetBlockStore();
+  auto catalog_ = db_main->GetCatalogLayer()->GetCatalog();
+
+  auto txn = txn_manager_->BeginTransaction();
+
+  // Create database catalog and namespace
+  auto db_oid_ = catalog_->CreateDatabase(noisepage::common::ManagedPointer<noisepage::transaction::TransactionContext>(txn), "tpch", true);
+  auto accessor =
+      catalog_->GetAccessor(noisepage::common::ManagedPointer<noisepage::transaction::TransactionContext>(txn), db_oid_, DISABLED);
+  auto ns_oid_ = accessor->GetDefaultNamespace();
+  noisepage::execution::exec::ExecutionSettings exec_settings_{};
+
+
+  // Make the execution context
+  auto exec_ctx =
+      noisepage::execution::exec::ExecutionContext(db_oid_, noisepage::common::ManagedPointer<noisepage::transaction::TransactionContext>(txn), nullptr,
+                                        nullptr, noisepage::common::ManagedPointer<noisepage::catalog::CatalogAccessor>(accessor),
+                                        exec_settings_, db_main->GetMetricsManager(), DISABLED, DISABLED);
+
+  noisepage::execution::sql::TableReader table_reader(&exec_ctx, block_store_.Get(), ns_oid_);
+  static const std::vector<std::string> tables{"part",   "supplier", "partsupp", "customer",
+                                                    "orders", "lineitem", "nation",   "region"};
+
+  std::string dir_name="/tpl_tables/tables/";
+  std::string kind=".data";
+  for (UNUSED_ATTRIBUTE const auto &table_name : tables) {
+    UNUSED_ATTRIBUTE auto table_dir = dir_name + table_name;
+    UNUSED_ATTRIBUTE auto num_rows = table_reader.ReadTable(dir_name + table_name + ".schema", table_dir.append(kind));
+    EXECUTION_LOG_INFO("Wrote {} rows on table {}.", num_rows, table_name);
+  }
+    txn_manager_->Commit(txn, noisepage::transaction::TransactionUtil::EmptyCallback, nullptr);
 
   db_main->Run();
 

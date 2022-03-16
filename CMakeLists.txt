@@ -230,7 +230,7 @@ set(BUILD_SUPPORT_DATA_DIR "${CMAKE_SOURCE_DIR}/build-support/data")
 set(NOISEPAGE_COMPILE_OPTIONS "")
 set(NOISEPAGE_LINK_LIBRARIES "")
 set(NOISEPAGE_LINK_OPTIONS "")
-set(NOISEPAGE_INCLUDE_DIRECTORIES "")
+set(NOISEPAGE_INCLUDE_DIRECTORIES "${CMAKE_SOURCE_DIR}/util/include")
 
 # Add compilation flags to NOISEPAGE_COMPILE_OPTIONS based on the current CMAKE_BUILD_TYPE.
 string(TOUPPER ${CMAKE_BUILD_TYPE} CMAKE_BUILD_TYPE)
@@ -564,7 +564,7 @@ pkg_search_module(EVENT_PTHREADS REQUIRED libevent_pthreads)
 find_package(LLVM 8.0 REQUIRED CONFIG)
 message(STATUS "[FOUND] LLVM ${LLVM_PACKAGE_VERSION}")
 # Explicitly request all of the LLVM components that we want.
-llvm_map_components_to_libnames(LLVM_LIBRARIES core ipo mcjit nativecodegen native support)
+llvm_map_components_to_libnames(LLVM_LIBRARIES Core ipo mcjit nativecodegen native support)
 
 # TBB.
 find_package(TBB REQUIRED)
@@ -696,7 +696,7 @@ endif ()
 
 add_executable(noisepage src/main/noisepage.cpp)
 target_compile_options(noisepage PRIVATE "-Werror" "-Wall")
-target_link_libraries(noisepage noisepage_static)
+target_link_libraries(noisepage noisepage_static util_static)
 set_target_properties(noisepage PROPERTIES CXX_EXTENSIONS OFF ENABLE_EXPORTS ON)
 
 #######################################################################################################################

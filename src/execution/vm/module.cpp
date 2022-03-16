@@ -6,7 +6,8 @@
 #include <mutex>  // NOLINT
 #include <string>
 #include <utility>
-
+#include <iostream>
+#include <chrono>
 #include "loggers/execution_logger.h"
 
 #define XBYAK_NO_OP_NAMES
@@ -267,6 +268,7 @@ void Module::CreateFunctionTrampoline(FunctionId func_id) {
 
 void Module::CompileToMachineCode() {
   std::call_once(compiled_flag_, [this]() {
+    auto start=std::chrono::high_resolution_clock::now();
     // Exit if the module has already been compiled. This might happen if
     // requested to execute in adaptive mode by concurrent threads.
     if (jit_module_ != nullptr) {
@@ -285,6 +287,8 @@ void Module::CompileToMachineCode() {
       NOISEPAGE_ASSERT(jit_function != nullptr, "Missing function in compiled module!");
       functions_[func_info.GetId()].store(jit_function, std::memory_order_relaxed);
     }
+    auto end=std::chrono::high_resolution_clock::now();
+    std::cout<<"compilation:"<<std::chrono::duration_cast<std::chrono::microseconds>(end-start).count()<<std::endl;
   });
 }
 

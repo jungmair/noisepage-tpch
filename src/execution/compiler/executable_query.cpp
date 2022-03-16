@@ -12,7 +12,8 @@
 #include "loggers/execution_logger.h"
 #include "self_driving/modeling/operating_unit.h"
 #include "transaction/transaction_context.h"
-
+#include <iostream>
+#include <chrono>
 namespace noisepage::execution::compiler {
 
 //===----------------------------------------------------------------------===//
@@ -41,7 +42,12 @@ void ExecutableQuery::Fragment::Run(byte query_state[], vm::ExecutionMode mode) 
                                 common::ErrorCode::ERRCODE_INTERNAL_ERROR);
     }
     try {
+          auto start=std::chrono::high_resolution_clock::now();
+
       func(query_state);
+          auto end=std::chrono::high_resolution_clock::now();
+       std::cout<<"execution:"<<std::chrono::duration_cast<std::chrono::microseconds>(end-start).count()<<std::endl;
+
     } catch (const AbortException &e) {
       for (const auto &teardown_name : teardown_fn_) {
         if (!module_->GetFunction(teardown_name, mode, &func)) {
@@ -158,6 +164,8 @@ void ExecutableQuery::Setup(std::vector<std::unique_ptr<Fragment>> &&fragments, 
 }
 
 void ExecutableQuery::Run(common::ManagedPointer<exec::ExecutionContext> exec_ctx, vm::ExecutionMode mode) {
+  
+  auto start=std::chrono::high_resolution_clock::now();
   // First, allocate the query state and move the execution context into it.
   auto query_state = std::make_unique<byte[]>(query_state_size_);
   *reinterpret_cast<exec::ExecutionContext **>(query_state.get()) = exec_ctx.Get();
@@ -175,6 +183,9 @@ void ExecutableQuery::Run(common::ManagedPointer<exec::ExecutionContext> exec_ct
   // We do not currently re-use ExecutionContexts. However, this is unset to help ensure
   // we don't *intentionally* retain any dangling pointers.
   exec_ctx->SetQueryState(nullptr);
+  auto end=std::chrono::high_resolution_clock::now();
+   std::cout<<"execution(complete):"<<std::chrono::duration_cast<std::chrono::microseconds>(end-start).count()<<std::endl;
+
 }
 
 }  // namespace noisepage::execution::compiler
